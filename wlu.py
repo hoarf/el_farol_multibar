@@ -64,7 +64,6 @@ class Agent:
     takes the rewards vector and updates the Q-table
     """
     q_a = self.action_q_values[self.action]
-    m = np.max(self.action_q_values)
     self.action_q_values[self.action] = q_a + ALPHA*(reward - q_a)
 
 class World:
