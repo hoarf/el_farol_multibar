@@ -32,8 +32,6 @@ ACTION_STAY_HOME = 0
 GREEDY = 0
 EXPLORE = 1
 
-nr_weeks = 5000
-
 class Agent:
 
   def __init__(self, maxactions):
@@ -67,7 +65,7 @@ class Agent:
     """
     q_a = self.action_q_values[self.action]
     m = np.max(self.action_q_values)
-    self.action_q_values[self.action] = q_a + ALPHA*(reward + m - q_a)
+    self.action_q_values[self.action] = q_a + ALPHA*(reward - q_a)
 
 class World:
 
@@ -243,6 +241,7 @@ def plot_q_values(agent_q_values, ylim=4000):
   agent_q_values: matrix of shape NR_AGENTSxNR_ACTIONSxNR_WEEKS
   """
   col_gen = cycle('bgrcmk')
+  nr_weeks = agent_q_values.shape[2]
   cols = [col_gen.next() for x in xrange(agent_q_values.shape[1])]
   x = np.linspace(0,nr_weeks-1,nr_weeks)
   nr_agents = agent_q_values.shape[0]
@@ -252,9 +251,9 @@ def plot_q_values(agent_q_values, ylim=4000):
     for bar in xrange(nr_actions):
       ax.plot(x, agent_q_values[index][bar], c=cols[bar], label='stay' if bar == 0 else 'bar%i'% bar )
     ax.set_ylabel("Q-Value")
-    #ax.set_yscale("log")
     ax.set_xlabel("Weeks")
-    ax.set_ylim(-4000, ylim)
+    if ylim:
+        ax.set_ylim(-4000, ylim)
     ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
            ncol=3, mode="expand", borderaxespad=0.)
   f.set_size_inches(15, 3)
