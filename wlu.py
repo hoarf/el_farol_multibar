@@ -77,7 +77,7 @@ class World:
     self.thresholds = thresholds
     self.maxbar = len(thresholds)
     self.maxactions = self.maxbar + 1
-    self.attendances = np.zeros(self.maxactions)
+    self.attendances = np.zeros(self.maxactions, dtype=np.float128)
     self.agents = [ Agent(self.maxactions) for x in xrange(nr_agents) ]
     self.week = 0
     self.p = EXPLORATION_CHANCE
@@ -95,7 +95,7 @@ class World:
     threshold: list of thresholds preferences for each bar
     returns: agent's reward as a real value
     """
-    a = ((np.float128(attendance)/len(self.agents)-np.float128(threshold))**2)*MAXREWARD #DIFF
+    a = ((attendance/len(self.agents))-threshold)**2 - MAXREWARD #DIFF
     b = a**2
     c = MAXREWARD/np.exp(b)
     return c
@@ -118,9 +118,9 @@ class World:
     agent_set: list of Agents that is used to calculate the rewards
     returns: the world utility (average utility over all agents)
     """
-    self.attendances = np.zeros(self.maxactions)
-    self.bar_results = np.zeros(self.maxbar)
-    self.rewards = np.zeros(self.maxactions)
+    self.attendances = np.zeros(self.maxactions, dtype=np.float128)
+    self.bar_results = np.zeros(self.maxbar, dtype=np.float128)
+    self.rewards = np.zeros(self.maxactions, dtype=np.float128)
 
     nr_agents = len(agent_set)
 
