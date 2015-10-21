@@ -95,8 +95,8 @@ class World:
     returns: agent's reward as a real value
     """
     a = (((attendance/len(self.agents))-threshold)**2)*MAXREWARD #DIFF
-    b = a**2
-    c = MAXREWARD/np.exp(max(b,50))
+    b = min(a**2,40)
+    c = MAXREWARD/np.exp(b)
     return c
 
   def get_reward_discrete(self, attendance, threshold):
