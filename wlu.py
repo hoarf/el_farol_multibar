@@ -95,7 +95,7 @@ class World:
     threshold: list of thresholds preferences for each bar
     returns: agent's reward as a real value
     """
-    a = ((attendance/len(self.agents))-threshold)**2 - MAXREWARD #DIFF
+    a = (((attendance/len(self.agents))-threshold)**2)*MAXREWARD #DIFF
     b = a**2
     c = MAXREWARD/np.exp(b)
     return c
