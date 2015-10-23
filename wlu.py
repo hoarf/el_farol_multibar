@@ -23,12 +23,14 @@ from itertools import cycle
 MAXREWARD = 1000.0
 ALPHA = .01
 EXPLORATION_CHANCE = .1
+DECAY = 0.9
 
 # CONSTANTS
 MAX_METHOD = 0
 BAR_RESULT_BAD = 0
 BAR_RESULT_GOOD = 1
 ACTION_STAY_HOME = 0
+INITIAL_EXPLORATION_CHANCE = 1
 GREEDY = 0
 EXPLORE = 1
 
@@ -40,7 +42,10 @@ class Agent:
     """
     self.choices = xrange(maxactions)
     # The Q-table is initialized with random values
-    self.action_q_values = np.zeros(maxactions, dtype=np.float128)
+    self.action_q_values = np.random.sample(maxactions)
+    mean = self.action_q_values.mean()
+    self.action_q_values -= mean
+    self.action_q_values *= 100
 
   def __repr__(self):
     """
@@ -79,7 +84,7 @@ class World:
     self.attendances = np.zeros(self.maxactions, dtype=np.float128)
     self.agents = [ Agent(self.maxactions) for x in xrange(nr_agents) ]
     self.week = 0
-    self.p = EXPLORATION_CHANCE
+    self.p = INITIAL_EXPLORATION_CHANCE
     self.reward_function = self.get_reward_discrete if nr_agents <= 100 else self.get_reward
 
   def __repr__(self):
@@ -162,6 +167,7 @@ class World:
     self.G = self.calculate_world_utility(self.agents)
     self.update_agents_utilities()
     self.week += 1
+    self.p *= DECAY
 
 
   def update_agents_utilities(self):
