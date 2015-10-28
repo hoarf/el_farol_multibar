@@ -261,7 +261,7 @@ class Experiment:
 
     return weekly_attendance, world_utilities, agent_q_values
 
-  def plot_attendances(attendances, ylim=1):
+  def plot_attendances(self, attendances, ylim=1):
     """
     data: matrix of NUMBER_OF_BARS x NUMBER_OF_WEEKS
     """
@@ -281,7 +281,7 @@ class Experiment:
     f.set_size_inches(10.5, 10.1)
     f.tight_layout()
 
-  def plot_world_utilities(world_utilities):
+  def plot_world_utilities(self, world_utilities):
     """
     world_utilities: list of world utilities of size NR_WEEKS
     """
@@ -289,7 +289,7 @@ class Experiment:
     x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
     axis.scatter(x, world_utilities, s=1)
 
-  def plot_q_values(agent_q_values, ylim=4000):
+  def plot_q_values(self, agent_q_values, ylim=4000):
     """
     agent_q_values: matrix of shape NR_AGENTSxNR_ACTIONSxNR_WEEKS
     """
