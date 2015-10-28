@@ -309,5 +309,5 @@ class Experiment:
           ax.set_ylim(-4000, ylim)
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                                   ncol=3, mode="expand", borderaxespad=0.)
-        f.set_size_inches(15, 3)
-        f.tight_layout()
+    f.set_size_inches(15, 3)
+    f.tight_layout()
