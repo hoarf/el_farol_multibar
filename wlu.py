@@ -161,9 +161,8 @@ class World:
     if self.week % 500 == 0:
         print("Week %s" % self.week)
         print("Agent 0 q-values before receiving reward %s" % self.agents[0].action_q_values)
-        print("Agent 0 reward %s" % self.rewards[self.agents[0].action])
         print("Agent 0 action %s" % self.agents[0].action)
-        print("Bar attendances %s" % (self.attendances/len(self.agents)))
+        print("Bar attendances %s" % self.attendances)
         print("Bar results %s" % self.bar_results)
         print("List of rewards %s" % self.rewards)
         print("Exploration probability %s" % self.p)
@@ -171,7 +170,6 @@ class World:
     if self.week % 500 == 0:
         print("Agent 0 q-values after reward %s" % self.agents[0].action_q_values)
         print('-----------------')
-    self.p = self.p*DECAY
     self.week += 1
 
 
