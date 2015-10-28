@@ -3,7 +3,7 @@ Code to simulate agents in the ElFarol problem using the wonderful life
 utility as rewards.
 
 Author: Alan Ficagna
-Version: 1.0.0
+Version: 1.0.1
 Expample of Usage:
 
     from wlu import ElFarolWLU, plot_attendances, plot_q_values, plot_world_utilities
@@ -16,21 +16,22 @@ Expample of Usage:
 
 """
 import numpy as np
+import gmpy2
+from gmpy2 import mpfr
 from matplotlib import pyplot as plt
 from itertools import cycle
 
 # PARAMETERS
 MAXREWARD = 1000.0
-ALPHA = .01
-EXPLORATION_CHANCE = .1
-DECAY = 0.9
+ALPHA = .010
+DECAY = 0.999
 
 # CONSTANTS
 MAX_METHOD = 0
 BAR_RESULT_BAD = 0
 BAR_RESULT_GOOD = 1
 ACTION_STAY_HOME = 0
-INITIAL_EXPLORATION_CHANCE = 1
+INITIAL_EXPLORATION_CHANCE = .5
 GREEDY = 0
 EXPLORE = 1
 
@@ -41,11 +42,7 @@ class Agent:
     maxactions: how many actions the agent has
     """
     self.choices = xrange(maxactions)
-    # The Q-table is initialized with random values
-    self.action_q_values = np.random.sample(maxactions)
-    mean = self.action_q_values.mean()
-    self.action_q_values -= mean
-    self.action_q_values *= 100
+    self.action_q_values = np.zeros(maxactions)
 
   def __repr__(self):
     """
@@ -99,10 +96,9 @@ class World:
     threshold: list of thresholds preferences for each bar
     returns: agent's reward as a real value
     """
-    a = (((attendance/len(self.agents))-threshold)**2)*MAXREWARD #DIFF
-    b = min(a**2,40)
-    c = MAXREWARD/np.exp(b)
-    return c
+    a = ((attendance-threshold)**2)*MAXREWARD #DIFF
+    b = a**2
+    return MAXREWARD/np.exp(b) if b < 40 else 0
 
   def get_reward_discrete(self, attendance, threshold):
     """
@@ -110,9 +106,9 @@ class World:
     threshold: list of thresholds preferences for each bar
     returns: agent's reward as a real value, but using a discrete version of the function get_reward()
     """
-    if attendance == threshold:
+    if attendance/len(self.agents) == threshold:
       return MAXREWARD
-    elif (threshold - 0.1 <= attendance) or (attendance <= threshold + 0.1):
+    elif (threshold - 0.1 <= attendance) and (threshold + 0.1 >= attendance):
       return 679.0
     else:
       return 0
@@ -136,17 +132,14 @@ class World:
     for bar in xrange(self.maxbar):
       self.bar_results[bar] = BAR_RESULT_GOOD if self.attendances[bar+1]/nr_agents <= self.thresholds[bar] else BAR_RESULT_BAD
 
-    # Wheter or not it was good to stay home (counting how many
-    # bar's results are different than 0(BAR_RESULT_BAD)) should be
-    # equal to zero for staying home be good
-    home_good = np.count_nonzero(self.bar_results) == 0
+    home_good = not reduce(lambda x, y: x or y, self.bar_results)
 
     # Updates the rewards
-    self.calculate_bar_rewards(home_good)
+    self.calculate_bar_rewards(home_good, nr_agents)
 
     return np.mean([self.rewards[a.action] for a in agent_set])
 
-  def calculate_bar_rewards(self, home_good):
+  def calculate_bar_rewards(self, home_good, nr_agents):
     """
     updates the rewards associated with each bar
     home_good: wheter or not it was good to stay home
@@ -155,7 +148,7 @@ class World:
       if action == ACTION_STAY_HOME:
         self.rewards[action] = MAXREWARD/self.maxbar if home_good else 0
       else:
-        self.rewards[action] = self.bar_results[action-1]*self.reward_function(self.attendances[action], self.thresholds[action-1])
+        self.rewards[action] = self.bar_results[action-1]*self.reward_function(self.attendances[action]/nr_agents, self.thresholds[action-1])
 
   def step(self):
     """
@@ -165,9 +158,21 @@ class World:
       agent.chose_action(self.p)
 
     self.G = self.calculate_world_utility(self.agents)
+    if self.week % 500 == 0:
+        print("Week %s" % self.week)
+        print("Agent 0 q-values before receiving reward %s" % self.agents[0].action_q_values)
+        print("Agent 0 reward %s" % self.rewards[self.agents[0].action])
+        print("Agent 0 action %s" % self.agents[0].action)
+        print("Bar attendances %s" % (self.attendances/len(self.agents)))
+        print("Bar results %s" % self.bar_results)
+        print("List of rewards %s" % self.rewards)
+        print("Exploration probability %s" % self.p)
     self.update_agents_utilities()
+    if self.week % 500 == 0:
+        print("Agent 0 q-values after reward %s" % self.agents[0].action_q_values)
+        print('-----------------')
+    self.p = self.p*DECAY
     self.week += 1
-    self.p *= DECAY
 
 
   def update_agents_utilities(self):
@@ -175,17 +180,18 @@ class World:
     for each agent removes him from the agent_set and recalculates the world utility,
     then updates Q-table with the WLU
     """
-    reserva = self.agents.pop(0)
+    # reserva = self.agents.pop(0)
     for agent in self.agents:
-      agent.update_utilities(self.G - self.calculate_world_utility(self.agents))
-      self.agents.append(reserva)
-      reserva = self.agents.pop(0)
-    self.agents.append(reserva)
+        agent.update_utilities(self.rewards[agent.action])
+      # agent.update_utilities(self.G - self.calculate_world_utility(self.agents))
+      # self.agents.append(reserva)
+      # reserva = self.agents.pop(0)
+    # self.agents.append(reserva)
 
     # this last operation recalculates the rewards and attendances for the complete
     # agent set; this is a flaw in the design of this algorithm in the sense that this
     # extra run over it is not needed but it don't seem to be worth correcting for now
-    self.calculate_world_utility(self.agents)
+    # self.calculate_world_utility(self.agents)
 
 def ElFarolWLU(nr_weeks=5000, thresholds=[0.3,0.5], nr_agents=100):
   """
@@ -246,15 +252,17 @@ def plot_q_values(agent_q_values, ylim=4000):
   agent_q_values: matrix of shape NR_AGENTSxNR_ACTIONSxNR_WEEKS
   """
   col_gen = cycle('bgrcmk')
+  linestyles_gen = cycle(['-'])
   nr_weeks = agent_q_values.shape[2]
-  cols = [col_gen.next() for x in xrange(agent_q_values.shape[1])]
+  cols = [col_gen.next() for _ in xrange(agent_q_values.shape[1])]
+  linestyles = [linestyles_gen.next() for _ in xrange(agent_q_values.shape[1])]
   x = np.linspace(0,nr_weeks-1,nr_weeks)
   nr_agents = agent_q_values.shape[0]
   nr_actions = agent_q_values.shape[1]
   f, axis = plt.subplots(ncols=nr_agents)
   for index, ax in enumerate(axis):
     for bar in xrange(nr_actions):
-      ax.plot(x, agent_q_values[index][bar], c=cols[bar], label='stay' if bar == 0 else 'bar%i'% bar )
+      ax.plot(x, agent_q_values[index][bar], c=cols[bar], ls=linestyles[bar], label='stay' if bar == 0 else 'bar%i'% bar )
     ax.set_ylabel("Q-Value")
     ax.set_xlabel("Weeks")
     if ylim:
