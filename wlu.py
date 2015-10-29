@@ -3,21 +3,12 @@ Code to simulate agents in the ElFarol problem using the wonderful life
 utility as rewards.
 
 Author: Alan Ficagna
-Version: 1.0.1
-Expample of Usage:
-
-    from wlu import ElFarolWLU, plot_attendances, plot_q_values, plot_world_utilities
-    tresholds = [0.3,0.5]
-    NR_AGENTS = 10
-    att, wu, aqv = ElFarolWLU(NR_WEEKS, tresholds, NR_AGENTS)
-    plot_attendances(att)
-    plot_world_utilities(wu)
-    plot_q_values(aqv)
-
 """
 import numpy as np
 from matplotlib import pyplot as plt
 from itertools import cycle
+
+np.seterr(all='raise')
 
 # PARAMETERS
 MAXREWARD = 1000.0
@@ -196,7 +187,6 @@ class World:
     for agent in self.agents:
         agent.update_utilities(self.rewards[agent.action])
 
-
 class Experiment:
 
   def __init__(self, nr_weeks=5000, p=.2, alpha=.01, thresholds=[0.3,0.5],
@@ -289,7 +279,7 @@ class Experiment:
     x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
     axis.scatter(x, world_utilities, s=1)
 
-  def plot_q_values(self, agent_q_values, ylim=4000):
+  def plot_q_values(self, agent_q_values, ylim=None):
     """
     agent_q_values: matrix of shape NR_AGENTSxNR_ACTIONSxNR_WEEKS
     """
@@ -297,12 +287,13 @@ class Experiment:
     linestyles_gen = cycle(['-'])
     cols = [col_gen.next() for _ in xrange(NR_ACTIONS)]
     linestyles = [linestyles_gen.next() for _ in xrange(NR_ACTIONS)]
-
     x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
-    f, axis = plt.subplots(ncols=NR_AGENTS)
-    for index, ax in enumerate(axis):
-      for bar in xrange(NR_ACTIONS):
-        ax.plot(x, agent_q_values[index][bar], c=cols[bar], ls=linestyles[bar], label='stay' if bar == 0 else 'bar%i'% bar )
+    f, axis = plt.subplots(ncols=agent_q_values.shape[0])
+    for agent, ax in enumerate(axis):
+      for action in xrange(NR_ACTIONS):
+        ax.plot(x, agent_q_values[agent][action],
+                c=cols[action], ls=linestyles[action],
+                label='stay' if action == 0 else 'bar%i'% action )
         ax.set_ylabel("Q-Value")
         ax.set_xlabel("Weeks")
         if ylim:
