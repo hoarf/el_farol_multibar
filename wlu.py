@@ -192,7 +192,7 @@ class World:
 
 class Experiment:
 
-  def __init__(self, nr_weeks=5000, p=.2, alpha=.01, thresholds=[0.3,0.5],
+  def __init__(self, nr_weeks=5000, p=1.0, alpha=.01, thresholds=[0.3,0.5],
                nr_agents=100, use_wlu=False, debug=False, decay=None):
     """
     nr_weeks: number of weeks as an integer
@@ -219,12 +219,14 @@ class Experiment:
     print(" --- Running experiment ---")
     print("DEBUG MODE: %s" % DEBUG)
     print(" Parameters: ")
+
     print("LEARNING RATE: %s" % ALPHA)
     print("THRESHOLDS: %s" % THRESHOLDS)
     print("NUMBER OF AGENTS: %s" % NR_AGENTS)
     print("NUMBER OF BARS: %s" % NR_BARS)
     print("NUMBER OF WEEKS: %s" % NR_WEEKS)
-    print("FIXED_EXPLORATION_CHANCE: %s" % INITIAL_EXPLORATION_CHANCE)
+    print("INITIAL_EXPLORATION_CHANCE: %s" % INITIAL_EXPLORATION_CHANCE)
+    print("DECAY: %s" % (decay if decay else "No"))
     print("REWARD TYPE: %s" % ("WLU" if USE_WLU else "REGULAR"))
 
   def run(self):
