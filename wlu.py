@@ -145,6 +145,7 @@ class World:
     self.update_rule()
     self.trace()
     self.week += 1
+    self.p = DECAY_FUNCTION(self.p)
 
   def trace(self, full=False):
     if DEBUG:
@@ -192,7 +193,7 @@ class World:
 class Experiment:
 
   def __init__(self, nr_weeks=5000, p=.2, alpha=.01, thresholds=[0.3,0.5],
-               nr_agents=100, use_wlu=False, debug=False):
+               nr_agents=100, use_wlu=False, debug=False, decay=None):
     """
     nr_weeks: number of weeks as an integer
     p: the exploration probability
@@ -202,7 +203,7 @@ class Experiment:
     use_wlu: whether or not the reward is the wonderful life utility
     debug: if information should be printed at every 500 steps
     """
-    global INITIAL_EXPLORATION_CHANCE, ALPHA, THRESHOLDS
+    global INITIAL_EXPLORATION_CHANCE, ALPHA, THRESHOLDS, DECAY_FUNCTION
     global NR_AGENTS, USE_WLU, NR_WEEKS, DEBUG, NR_ACTIONS, NR_BARS
     ALPHA = alpha
     INITIAL_EXPLORATION_CHANCE = p
@@ -213,6 +214,7 @@ class Experiment:
     DEBUG = debug
     NR_BARS = len(THRESHOLDS)
     NR_ACTIONS = NR_BARS + 1
+    DECAY_FUNCTION = decay if decay else lambda x: x
 
     print(" --- Running experiment ---")
     print("DEBUG MODE: %s" % DEBUG)

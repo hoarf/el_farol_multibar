@@ -2,6 +2,18 @@ import wlu
 import numpy as np
 import pytest
 
+def test_no_decay():
+    e = wlu.Experiment(nr_agents=2, decay=None, p=.3)
+    w = wlu.World()
+    w.step()
+    assert w.p == .3
+
+def test_decay():
+    e = wlu.Experiment(nr_agents=2, decay=lambda x: x*.999, p=1.0)
+    w = wlu.World()
+    w.step()
+    assert w.p == 1.0*.999
+
 def test_reward():
     e = wlu.Experiment(nr_agents=101)
     w = wlu.World()
