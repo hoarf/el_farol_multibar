@@ -10,11 +10,9 @@ from itertools import cycle
 
 np.seterr(all='raise')
 
-# PARAMETERS
-MAXREWARD = 1000.0
-
 # CONSTANTS
 MAX_METHOD = 0
+MAXREWARD = 1000.0
 BAR_RESULT_BAD = 0
 BAR_RESULT_GOOD = 1
 ACTION_STAY_HOME = 0
@@ -152,28 +150,30 @@ class World:
         if full:
           print('-----------------')
           print("Week %s" % self.week)
-          print("Agent 0 q-values before receiving reward %s"
-                 % self.agents[0].action_q_values)
-          print("Agent 0 action %s" % self.agents[0].action)
+          print("Agent N q-values before receiving reward %s"
+                 % self.agents[-1].action_q_values)
+          print("Agent N action %s" % self.agents[-1].action)
           print("Bar attendances %s" % self.attendances)
           print("Bar results %s" % self.bar_results)
           print("List of rewards %s" % self.rewards)
           print("Exploration probability %s" % self.p)
         else:
-          print("Agent 0 q-values after receiving reward %s"
-                 % self.agents[0].action_q_values)
+          print("Agent N q-values after receiving reward %s"
+                 % self.agents[-1].action_q_values)
+          if USE_WLU:
+            print("World utility: %s" % self.G)
+            print("World utility w/o Agent N: %s" % self.GN)
 
   def update_agents_wlu(self):
     """
     for each agent removes him from the agent_set and recalculates the world utility,
     then updates Q-table with the WLU
     """
-    reserva = self.agents.pop(0)
-    for agent in self.agents:
-      agent.update_utilities(self.G - self.calculate_world_utility(self.agents))
-      self.agents.append(reserva)
+    for _ in xrange(NR_AGENTS):
       reserva = self.agents.pop(0)
-    self.agents.append(reserva)
+      self.GN = self.G - self.calculate_world_utility(self.agents)
+      reserva.update_utilities(self.GN)
+      self.agents.append(reserva)
 
     # this last operation recalculates the rewards and attendances for the complete
     # agent set; this is a flaw in the design of this algorithm in the sense that this
@@ -287,8 +287,10 @@ class Experiment:
     linestyles_gen = cycle(['-'])
     cols = [col_gen.next() for _ in xrange(NR_ACTIONS)]
     linestyles = [linestyles_gen.next() for _ in xrange(NR_ACTIONS)]
+
     x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
     f, axis = plt.subplots(ncols=agent_q_values.shape[0])
+
     for agent, ax in enumerate(axis):
       for action in xrange(NR_ACTIONS):
         ax.plot(x, agent_q_values[agent][action],
