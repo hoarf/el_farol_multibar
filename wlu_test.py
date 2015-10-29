@@ -9,6 +9,26 @@ def test_reward():
         rw = w.get_reward(x/101.0, 0.3)
         assert(rw > 0)
 
+def test_discrete_reward_regular():
+    e = wlu.Experiment(nr_agents=9)
+    w = wlu.World()
+
+    a0,a1,a2,a3,a4,a5,a6,a7,a8 = w.agents
+
+    a8.action = 0
+    a0.action, a1.action, a2.action, a3.action, a4.action = 2, 2, 2, 2, 2
+    a5.action, a6.action, a7.action = 1, 1, 1
+
+    w.calculate_world_utility(w.agents)
+    assert(( w.attendances == [1 , 3 , 5] ).all())
+    assert(( w.bar_results == [0 , 0] ).all())
+    assert(( w.rewards == [500, 0, 0] ).all())
+
+    w.update_rule()
+    assert(( a0.action_q_values == [0, 0, 0] ).all())
+    assert(( a1.action_q_values == [0, 0, 0] ).all())
+    assert(( a8.action_q_values == [5, 0, 0] ).all())
+
 def test_wlu_4_agents():
     e = wlu.Experiment(nr_agents=4, use_wlu=True)
     w = wlu.World()
