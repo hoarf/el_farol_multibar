@@ -63,11 +63,11 @@ class World:
     else:
       self.update_rule = self.update_agents
 
-  def relative_attendances(self):
+  def relative_attendances(self, nr_agents):
     """
     returns: the list of relative attendances
     """
-    return self.attendances/NR_AGENTS
+    return self.attendances/nr_agents
 
   def get_reward(self, attendance, threshold):
     """
@@ -101,23 +101,25 @@ class World:
     self.bar_results = np.zeros(NR_BARS)
     self.rewards = np.zeros(NR_ACTIONS)
 
+    nr_agents = len(agent_set)
+
     # Updates attendences counts
     for agent in agent_set:
       self.attendances[agent.action] += 1.0
 
     # Updates the bar results
     for bar in xrange(NR_BARS):
-      result = self.relative_attendances()[bar+1] <= THRESHOLDS[bar]
+      result = self.relative_attendances(nr_agents)[bar+1] <= THRESHOLDS[bar]
       self.bar_results[bar] = BAR_RESULT_GOOD if result else BAR_RESULT_BAD
 
     home_good = not reduce(lambda x, y: x or y, self.bar_results)
 
     # Updates the rewards
-    self.calculate_bar_rewards(home_good)
+    self.calculate_bar_rewards(home_good, nr_agents)
 
     return np.mean([self.rewards[a.action] for a in agent_set])
 
-  def calculate_bar_rewards(self, home_good):
+  def calculate_bar_rewards(self, home_good, nr_agents):
     """
     updates the rewards associated with each bar
     home_good: wheter or not it was good to stay home
@@ -126,7 +128,7 @@ class World:
       if action == ACTION_STAY_HOME:
         self.rewards[action] = MAXREWARD/NR_BARS if home_good else 0
       else:
-        a = self.relative_attendances()[action]
+        a = self.relative_attendances(nr_agents)[action]
         t = THRESHOLDS[action-1]
         result = self.bar_results[action-1]
         self.rewards[action] = result*self.reward_function(a,t)
@@ -178,7 +180,7 @@ class World:
     # this last operation recalculates the rewards and attendances for the complete
     # agent set; this is a flaw in the design of this algorithm in the sense that this
     # extra run over it is not needed but it don't seem to be worth correcting for now
-    self.calculate_world_utility(self.agents)
+    self.G = self.calculate_world_utility(self.agents)
 
   def update_agents(self):
     """
@@ -244,7 +246,7 @@ class Experiment:
       w.step()
       world_utilities[week] = w.G
       for action in xrange(NR_ACTIONS):
-        weekly_attendance[action][week] = w.relative_attendances()[action]
+        weekly_attendance[action][week] = w.relative_attendances(NR_AGENTS)[action]
         for ag_ix,_ in enumerate(w.agents):
           q_value = w.agents[ag_ix].action_q_values[action]
           agent_q_values[ag_ix][action][week] = q_value
