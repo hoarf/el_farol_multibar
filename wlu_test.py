@@ -2,6 +2,61 @@ import wlu
 import numpy as np
 import pytest
 
+def test_bar_result():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    w.bar_results = np.zeros(2)
+    w.update_bar_results([.6,.1,.3])
+    assert (w.bar_results == [1,1]).all()
+    w.update_bar_results([.3,.4,.3])
+    assert (w.bar_results == [0,1]).all()
+    w.update_bar_results([.5,.1,.4])
+    assert (w.bar_results == [1,0]).all()
+    w.update_bar_results([.3,.3,.4])
+    assert (w.bar_results == [0,0]).all()
+
+def test_home_good():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    good = w.is_home_good([0, 1])
+    assert not good
+    good = w.is_home_good([1, 0])
+    assert not good
+    good = w.is_home_good([0, 0])
+    assert good
+    good = w.is_home_good([1, 1])
+    assert not good
+
+def test_low_reward():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    r = w.get_reward(.1, .3)
+    assert r == 0
+
+def test_high_reward():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    r = w.get_reward(.9, .3)
+    assert r == 0
+
+def test_point_five_treshold_reward():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    r = w.get_reward(0.485148514851, .5)
+    assert abs(r - 952.51480391) < 1e-2
+
+def test_point_three_treshold_reward():
+    e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
+    w = wlu.World()
+    r = w.get_reward(0.287128712871, .3)
+    assert abs(r - 972.926674737) < 1e-2
+
+def test_return_reward():
+    e = wlu.Experiment(nr_weeks = 1)
+    w = wlu.World()
+    _, _, _, rewards, _ = e.run()
+    assert rewards != None
+
 def test_no_decay():
     e = wlu.Experiment(nr_agents=2, decay=None, p=.3)
     w = wlu.World()
@@ -9,7 +64,7 @@ def test_no_decay():
     assert w.p == .3
 
 def test_decay():
-    e = wlu.Experiment(nr_agents=2, decay=lambda x: x*.999, p=1.0)
+    e = wlu.Experiment(nr_agents=2, decay="exponential", p=1.0)
     w = wlu.World()
     w.step()
     assert w.p == 1.0*.999

@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from itertools import cycle
 
+# Raise exception on numeric problems
 np.seterr(all='raise')
 
 # CONSTANTS
@@ -92,6 +93,14 @@ class World:
     else:
       return 0
 
+  def is_home_good(self, bar_results):
+    """
+    bar_results: list containing the flag that indicates whether or not it
+        was good to go to the given bar
+    returns: true if no bar had more than the threshold
+    """
+    return not reduce(lambda x, y: x or y, bar_results)
+
   def calculate_world_utility(self, agent_set):
     """
     agent_set: list of Agents that is used to calculate the rewards
@@ -107,19 +116,22 @@ class World:
     for agent in agent_set:
       self.attendances[agent.action] += 1.0
 
-    # Updates the bar results
-    for bar in xrange(NR_BARS):
-      result = self.relative_attendances(nr_agents)[bar+1] <= THRESHOLDS[bar]
-      self.bar_results[bar] = BAR_RESULT_GOOD if result else BAR_RESULT_BAD
+    self.update_bar_results(self.relative_attendances(nr_agents))
 
-    home_good = not reduce(lambda x, y: x or y, self.bar_results)
+    home_good = self.is_home_good(self.bar_results)
 
     # Updates the rewards
-    self.calculate_bar_rewards(home_good, nr_agents)
+    self.update_bar_rewards(home_good, nr_agents)
 
     return np.mean([self.rewards[a.action] for a in agent_set])
 
-  def calculate_bar_rewards(self, home_good, nr_agents):
+  def update_bar_results(self, attendances):
+    for bar in xrange(NR_BARS):
+      result = attendances[bar+1] <= THRESHOLDS[bar]
+      self.bar_results[bar] = BAR_RESULT_GOOD if result else BAR_RESULT_BAD
+
+
+  def update_bar_rewards(self, home_good, nr_agents):
     """
     updates the rewards associated with each bar
     home_good: wheter or not it was good to stay home
@@ -145,7 +157,7 @@ class World:
     self.update_rule()
     self.trace()
     self.week += 1
-    self.p = DECAY_FUNCTION(self.p)
+    self.p = DECAY_FUNCTION(self.p, self.week)
 
   def trace(self, full=False):
     if DEBUG:
@@ -205,6 +217,13 @@ class Experiment:
     """
     global INITIAL_EXPLORATION_CHANCE, ALPHA, THRESHOLDS, DECAY_FUNCTION
     global NR_AGENTS, USE_WLU, NR_WEEKS, DEBUG, NR_ACTIONS, NR_BARS
+
+    DECAYS = {
+      "exponential": lambda x, w: x*.999,
+      None: lambda x, w: x,
+      "partial": lambda x, w: x if w < NR_WEEKS/2.0 else 0.0
+    }
+
     ALPHA = alpha
     INITIAL_EXPLORATION_CHANCE = p
     THRESHOLDS = thresholds
@@ -214,7 +233,7 @@ class Experiment:
     DEBUG = debug
     NR_BARS = len(THRESHOLDS)
     NR_ACTIONS = NR_BARS + 1
-    DECAY_FUNCTION = decay if decay else lambda x: x
+    DECAY_FUNCTION = DECAYS[decay]
 
     print(" --- Running experiment ---")
     print("DEBUG MODE: %s" % DEBUG)
@@ -225,7 +244,7 @@ class Experiment:
     print("NUMBER OF AGENTS: %s" % NR_AGENTS)
     print("NUMBER OF BARS: %s" % NR_BARS)
     print("NUMBER OF WEEKS: %s" % NR_WEEKS)
-    print("INITIAL_EXPLORATION_CHANCE: %s" % INITIAL_EXPLORATION_CHANCE)
+    print("INITIAL EXPLORATION CHANCE %s" % INITIAL_EXPLORATION_CHANCE)
     print("DECAY: %s" % (decay if decay else "No"))
     print("REWARD TYPE: %s" % ("WLU" if USE_WLU else "REGULAR"))
 
@@ -238,11 +257,16 @@ class Experiment:
         world_utilities (NR_WEEKS) the world_utility at every week
         agent_q_values (NR_AGENTSxNR_ACTIONSxNR_WEEKS) the agent's q values
             for each action for each week
+        rewards (NR_AGENTSxNR_ACTIONSxNR_WEEKS) the agent's rewards
+            for each action for each week
+        actions (NR_AGENTSxNR_WEEKS) the action of each agent, each week
     """
 
     weekly_attendance = np.zeros((NR_ACTIONS,NR_WEEKS))
     world_utilities = np.zeros(NR_WEEKS)
     agent_q_values = np.zeros((NR_AGENTS, NR_ACTIONS, NR_WEEKS))
+    rewards = np.zeros((NR_AGENTS, NR_ACTIONS, NR_WEEKS))
+    actions = np.zeros((NR_AGENTS, NR_WEEKS))
 
     w = World()
 
@@ -254,8 +278,10 @@ class Experiment:
         for ag_ix,_ in enumerate(w.agents):
           q_value = w.agents[ag_ix].action_q_values[action]
           agent_q_values[ag_ix][action][week] = q_value
+          rewards[ag_ix][action][week] = w.rewards[w.agents[ag_ix].action]
+          actions[ag_ix][week] = w.agents[ag_ix].action
 
-    return weekly_attendance, world_utilities, agent_q_values
+    return weekly_attendance, world_utilities, agent_q_values, rewards, actions
 
   def plot_attendances(self, attendances, ylim=1):
     """
@@ -264,8 +290,11 @@ class Experiment:
     x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
     f, axis = plt.subplots(nrows=NR_ACTIONS)
     for index, ax in enumerate(axis):
-      ax.scatter(x, [attendances[index][k] for k in x], s=1)
+      ax.scatter(x, [attendances[index][k] for k in x], s=3)
       ax.set_title("bar" + str(index) if index != 0 else "stay")
+      if index != 0:
+        ax.axhline(y=THRESHOLDS[index-1]-(0.05 if NR_AGENTS > 100 else 0.1), c='r')
+        ax.axhline(y=THRESHOLDS[index-1], c='r')
       ax.set_ylim(0, ylim)
       ax.set_xlim(0, NR_WEEKS)
       ax.set_yticks(np.arange(0,ylim,0.1))
@@ -274,7 +303,7 @@ class Experiment:
       ax.set_xlabel("Weeks")
       ax.grid()
 
-    f.set_size_inches(10.5, 10.1)
+    f.set_size_inches(10.5, NR_BARS*5)
     f.tight_layout()
 
   def plot_world_utilities(self, world_utilities):
@@ -308,5 +337,28 @@ class Experiment:
           ax.set_ylim(-4000, ylim)
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                                   ncol=3, mode="expand", borderaxespad=0.)
-    f.set_size_inches(15, 3)
+    f.set_size_inches(10, 3)
+    f.tight_layout()
+
+  def plot_rewards(self, rewards):
+    """
+    rewards: matrix of shape NR_AGENTSxNR_ACTIONSxNR_WEEKS
+    """
+    col_gen = cycle('bgrcmk')
+    linestyles_gen = cycle(['-'])
+    cols = [col_gen.next() for _ in xrange(NR_ACTIONS)]
+    linestyles = [linestyles_gen.next() for _ in xrange(NR_ACTIONS)]
+
+    x = np.linspace(0,NR_WEEKS-1,NR_WEEKS)
+    f, axis = plt.subplots(ncols=rewards.shape[0])
+
+    for agent, ax in enumerate(axis):
+      for action in xrange(NR_ACTIONS):
+        ax.scatter(x, rewards[agent][action], color=cols[action],
+               label='stay' if action == 0 else 'bar%i'% action, s=1)
+        ax.set_ylabel("Q-Value")
+        ax.set_xlabel("Weeks")
+        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
+                                  ncol=3, mode="expand", borderaxespad=0.)
+    f.set_size_inches(10, 3)
     f.tight_layout()
