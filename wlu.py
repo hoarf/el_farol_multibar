@@ -356,7 +356,7 @@ class Experiment:
       for action in xrange(NR_ACTIONS):
         ax.scatter(x, rewards[agent][action], color=cols[action],
                label='stay' if action == 0 else 'bar%i'% action, s=1)
-        ax.set_ylabel("Q-Value")
+        ax.set_ylabel("Rewards")
         ax.set_xlabel("Weeks")
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3,
                                   ncol=3, mode="expand", borderaxespad=0.)
