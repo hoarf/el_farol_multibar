@@ -2,6 +2,19 @@ import wlu
 import numpy as np
 import pytest
 
+def test_initialization():
+    e = wlu.Experiment(init_q_value="rand", nr_agents=2)
+    w = wlu.World()
+    assert (w.agents[0].action_q_values != w.agents[1].action_q_values).any()
+    e = wlu.Experiment(init_q_value="zeros", nr_agents=2)
+    w = wlu.World()
+    assert (w.agents[0].action_q_values == w.agents[1].action_q_values).all()
+    e = wlu.Experiment(init_q_value="zeros", nr_agents=2, debug=False)
+    w = wlu.World()
+    w.agents[0].chose_action(.5)
+    w.agents[0].update_utilities(10)
+    assert (w.agents[0].action_q_values != w.agents[1].action_q_values).any()
+
 def test_bar_result():
     e = wlu.Experiment(thresholds=[0.2,0.3], nr_agents=101)
     w = wlu.World()

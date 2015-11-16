@@ -25,7 +25,7 @@ class Agent:
 
   def __init__(self):
     self.choices = xrange(NR_ACTIONS)
-    self.action_q_values = np.zeros(NR_ACTIONS)
+    self.action_q_values = INITIAL_Q_VALUES()
 
   def chose_action(self, p):
     """
@@ -45,7 +45,8 @@ class Agent:
     takes the rewards vector and updates the Q-table
     """
     q_a = self.action_q_values[self.action]
-    self.action_q_values[self.action] = q_a + ALPHA*(reward - q_a)
+    new_value = q_a + ALPHA*(reward - q_a)
+    self.action_q_values[self.action] = new_value
 
 class World:
 
@@ -130,7 +131,6 @@ class World:
       result = attendances[bar+1] <= THRESHOLDS[bar]
       self.bar_results[bar] = BAR_RESULT_GOOD if result else BAR_RESULT_BAD
 
-
   def update_bar_rewards(self, home_good, nr_agents):
     """
     updates the rewards associated with each bar
@@ -190,9 +190,10 @@ class World:
       reserva.update_utilities(self.GN)
       self.agents.append(reserva)
 
-    # this last operation recalculates the rewards and attendances for the complete
-    # agent set; this is a flaw in the design of this algorithm in the sense that this
-    # extra run over it is not needed but it don't seem to be worth correcting for now
+    # this last operation recalculates the rewards and attendances for the
+    # complete agent set; this is a flaw in the design of this algorithm in the
+    # sense that this extra run over it is not needed but it don't seem to be
+    # worth correcting for now
     self.G = self.calculate_world_utility(self.agents)
 
   def update_agents(self):
@@ -205,7 +206,8 @@ class World:
 class Experiment:
 
   def __init__(self, nr_weeks=5000, p=1.0, alpha=.01, thresholds=[0.3,0.5],
-               nr_agents=100, use_wlu=False, debug=False, decay=None):
+               nr_agents=100, use_wlu=False, debug=False, decay=None,
+               init_q_value="zeros"):
     """
     nr_weeks: number of weeks as an integer
     p: the exploration probability
@@ -217,6 +219,7 @@ class Experiment:
     """
     global INITIAL_EXPLORATION_CHANCE, ALPHA, THRESHOLDS, DECAY_FUNCTION
     global NR_AGENTS, USE_WLU, NR_WEEKS, DEBUG, NR_ACTIONS, NR_BARS
+    global INITIAL_Q_VALUES
 
     DECAYS = {
       "exponential": lambda x, w: x*.999,
@@ -234,6 +237,13 @@ class Experiment:
     NR_BARS = len(THRESHOLDS)
     NR_ACTIONS = NR_BARS + 1
     DECAY_FUNCTION = DECAYS[decay]
+
+    Q_VALUES_INITIALIZERS = {
+        "zeros": lambda: np.zeros(NR_ACTIONS),
+        "rand": lambda: np.random.random_sample(NR_ACTIONS)*MAXREWARD,
+    }
+
+    INITIAL_Q_VALUES = Q_VALUES_INITIALIZERS[init_q_value]
 
     print(" --- Running experiment ---")
     print("DEBUG MODE: %s" % DEBUG)
