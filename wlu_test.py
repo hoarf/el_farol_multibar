@@ -90,7 +90,7 @@ def test_reward():
         assert(rw > 0)
 
 def test_discrete_reward_regular():
-    e = wlu.Experiment(nr_agents=9)
+    e = wlu.Experiment(nr_agents=9, continuous=False)
     w = wlu.World()
 
     a0,a1,a2,a3,a4,a5,a6,a7,a8 = w.agents
@@ -110,7 +110,7 @@ def test_discrete_reward_regular():
     assert(( a8.action_q_values == [5, 0, 0] ).all())
 
 def test_wlu_4_agents():
-    e = wlu.Experiment(nr_agents=4, use_wlu=True)
+    e = wlu.Experiment(nr_agents=4, use_wlu=True, continuous=False)
     w = wlu.World()
 
     a0 = w.agents[0]
@@ -166,3 +166,16 @@ def test_wlu_4_agents():
 
     w.update_rule()
     assert(w.G == np.mean([0, 679, 1000, 1000]))
+
+def test_is_home_good_cont():
+    e = wlu.Experiment(thresholds=[0.3,0.5], nr_agents=4, use_wlu=False, continuous=True)
+    w = wlu.World()
+    assert w.is_home_good([0,0]) == True
+    assert w.is_home_good([1,0]) == False
+    assert w.is_home_good([0,1]) == False
+    assert w.is_home_good([1,1]) == False
+
+def test_reward_continuous():
+    e = wlu.Experiment(thresholds=[0.3,0.5], nr_agents=4, use_wlu=False, continuous=True)
+    w = wlu.World()
+    assert abs(w.reward_function(.2, .3) - 441.893666765) < 1e4

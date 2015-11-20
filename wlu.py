@@ -7,6 +7,7 @@ Author: Alan Ficagna
 import numpy as np
 from matplotlib import pyplot as plt
 from itertools import cycle
+import math
 
 # Raise exception on numeric problems
 np.seterr(all='raise')
@@ -55,7 +56,10 @@ class World:
     self.agents = [ Agent() for _ in xrange(NR_AGENTS) ]
     self.week = 0
     self.p = INITIAL_EXPLORATION_CHANCE
-    if NR_AGENTS <= MAX_NR_AGENTS_FOR_DISCRETE_FUNCTION:
+
+    if CONTINUOUS:
+      self.reward_function = self.get_reward_continuous
+    elif NR_AGENTS <= MAX_NR_AGENTS_FOR_DISCRETE_FUNCTION:
       self.reward_function = self.get_reward_discrete
     else:
       self.reward_function = self.get_reward
@@ -64,6 +68,19 @@ class World:
       self.update_rule = self.update_agents_wlu
     else:
       self.update_rule = self.update_agents
+
+    if CONTINUOUS:
+      self.is_home_good_fn = self.is_home_good_continuous
+    else:
+      self.is_home_good_fn = self.is_home_good
+
+  def get_reward_continuous(self, attendance, threshold):
+    """
+    attendance: list of attendance counts for each bar
+    threshold: list of THRESHOLDS preferences for each bar
+    returns: agent's reward as a real value
+    """
+    return REWARD_CONT(attendance, threshold)
 
   def relative_attendances(self, nr_agents):
     """
@@ -102,6 +119,14 @@ class World:
     """
     return not reduce(lambda x, y: x or y, bar_results)
 
+  def is_home_good_continuous(self, bar_results):
+    """
+    bar_results: list containing the flag that indicates whether or not it
+        was good to go to the given bar
+    returns: true if no bar had more than the threshold
+    """
+    return HOME_GOOD_CONT_FN(sum(bar_results)) >= 0
+
   def calculate_world_utility(self, agent_set):
     """
     agent_set: list of Agents that is used to calculate the rewards
@@ -112,19 +137,15 @@ class World:
     self.rewards = np.zeros(NR_ACTIONS)
 
     nr_agents = len(agent_set)
+    self.update_attendance_count(agent_set)
+    self.update_bar_results(self.relative_attendances(nr_agents))
+    home_good = self.is_home_good_fn(self.bar_results)
+    self.update_bar_rewards(home_good, nr_agents)
+    return np.mean([self.rewards[a.action] for a in agent_set])
 
-    # Updates attendences counts
+  def update_attendance_count(self, agent_set):
     for agent in agent_set:
       self.attendances[agent.action] += 1.0
-
-    self.update_bar_results(self.relative_attendances(nr_agents))
-
-    home_good = self.is_home_good(self.bar_results)
-
-    # Updates the rewards
-    self.update_bar_rewards(home_good, nr_agents)
-
-    return np.mean([self.rewards[a.action] for a in agent_set])
 
   def update_bar_results(self, attendances):
     for bar in xrange(NR_BARS):
@@ -145,6 +166,19 @@ class World:
         result = self.bar_results[action-1]
         self.rewards[action] = result*self.reward_function(a,t)
 
+  def update_bar_rewards(self, home_good, nr_agents):
+    """
+    updates the rewards associated with each bar
+    home_good: wheter or not it was good to stay home
+    """
+    for action in xrange(NR_ACTIONS):
+      if action == ACTION_STAY_HOME:
+        self.rewards[action] = MAXREWARD/NR_BARS if home_good else 0
+      else:
+        a = self.relative_attendances(nr_agents)[action]
+        t = THRESHOLDS[action-1]
+        result = self.bar_results[action-1]
+        self.rewards[action] = result*self.reward_function(a,t)
   def step(self):
     """
     performs a time step and updates the world
@@ -207,7 +241,7 @@ class Experiment:
 
   def __init__(self, nr_weeks=5000, p=1.0, alpha=.01, thresholds=[0.3,0.5],
                nr_agents=100, use_wlu=False, debug=False, decay=None,
-               init_q_value="zeros"):
+               init_q_value="zeros", continuous=True):
     """
     nr_weeks: number of weeks as an integer
     p: the exploration probability
@@ -219,7 +253,7 @@ class Experiment:
     """
     global INITIAL_EXPLORATION_CHANCE, ALPHA, THRESHOLDS, DECAY_FUNCTION
     global NR_AGENTS, USE_WLU, NR_WEEKS, DEBUG, NR_ACTIONS, NR_BARS
-    global INITIAL_Q_VALUES
+    global INITIAL_Q_VALUES, HOME_GOOD_CONT_FN, CONTINUOUS, REWARD_CONT
 
     DECAYS = {
       "exponential": lambda x, w: x*.999,
@@ -237,6 +271,13 @@ class Experiment:
     NR_BARS = len(THRESHOLDS)
     NR_ACTIONS = NR_BARS + 1
     DECAY_FUNCTION = DECAYS[decay]
+    CONTINUOUS = continuous
+    HOME_GOOD_CONT_FN = lambda x: np.tanh(x-NR_BARS)
+
+    # GenLogistic Probability density function adapted to mode = threshold
+    B = 0.02 #SCALE
+    C = 0.2 #SHAPE
+    REWARD_CONT = lambda x, t: ((C/B)*np.exp(-((x-(t-B*np.log(C)))/B))*(1+np.exp(-((x-(t-B*np.log(C)))/B)))**(-C-1))*MAXREWARD/6.0
 
     Q_VALUES_INITIALIZERS = {
         "zeros": lambda: np.zeros(NR_ACTIONS),
@@ -246,17 +287,18 @@ class Experiment:
     INITIAL_Q_VALUES = Q_VALUES_INITIALIZERS[init_q_value]
 
     print(" --- Running experiment ---")
-    print("DEBUG MODE: %s" % DEBUG)
-    print(" Parameters: ")
+    if DEBUG:
+      print("DEBUG MODE: %s" % DEBUG)
+      print(" Parameters: ")
 
-    print("LEARNING RATE: %s" % ALPHA)
-    print("THRESHOLDS: %s" % THRESHOLDS)
-    print("NUMBER OF AGENTS: %s" % NR_AGENTS)
-    print("NUMBER OF BARS: %s" % NR_BARS)
-    print("NUMBER OF WEEKS: %s" % NR_WEEKS)
-    print("INITIAL EXPLORATION CHANCE %s" % INITIAL_EXPLORATION_CHANCE)
-    print("DECAY: %s" % (decay if decay else "No"))
-    print("REWARD TYPE: %s" % ("WLU" if USE_WLU else "REGULAR"))
+      print("LEARNING RATE: %s" % ALPHA)
+      print("THRESHOLDS: %s" % THRESHOLDS)
+      print("NUMBER OF AGENTS: %s" % NR_AGENTS)
+      print("NUMBER OF BARS: %s" % NR_BARS)
+      print("NUMBER OF WEEKS: %s" % NR_WEEKS)
+      print("INITIAL EXPLORATION CHANCE %s" % INITIAL_EXPLORATION_CHANCE)
+      print("DECAY: %s" % (decay if decay else "No"))
+      print("REWARD TYPE: %s" % ("WLU" if USE_WLU else "REGULAR"))
 
   def run(self):
     """
